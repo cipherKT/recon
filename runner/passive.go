@@ -14,18 +14,21 @@ import (
 
 func RunPassive(cfg config.Config) error {
 	// Running subfinder
-	subfinderFile := cfg.Output + "/subfinder_subs.txt"
-	subfinder := exec.Command("subfinder", "-d", cfg.Domain, "--silent", "--recursive", "--all", "-o", subfinderFile)
-	subfinder.Stderr = os.Stderr
 	done := make(chan bool)
 	go utils.Spinner("running subfinder...", done)
-	subfinder_error := subfinder.Run()
-	done <- true
-	if subfinder_error != nil {
-		return fmt.Errorf("subfinder failed! \n%w", subfinder_error)
+	subfinderFile := cfg.Output + "/subfinder_subs.txt"
+	subfinder := exec.Command("subfinder", "-d", cfg.Domain, "--silent", "--recursive", "--all", "-o", subfinderFile)
+	subfinder.Stdout = os.Stdout
+	subfinder.Stderr = os.Stderr
+	subfinderErr := subfinder.Run()
+	if subfinderErr != nil {
+		return fmt.Errorf("subfinder failed! \n%w", subfinderErr)
 	}
+	done <- true
 
 	// Running assetfinder
+	done = make(chan bool)
+	go utils.Spinner("running assetfinder...", done)
 	assetfinder := exec.Command("assetfinder", "--subs-only", cfg.Domain)
 	assetfinderFile, err := os.Create(cfg.Output + "/assetfinder_subs.txt")
 	if err != nil {
@@ -34,32 +37,29 @@ func RunPassive(cfg config.Config) error {
 	defer assetfinderFile.Close()
 	assetfinder.Stdout = assetfinderFile
 	assetfinder.Stderr = os.Stderr
-	done = make(chan bool)
-	go utils.Spinner("running assetfinder...", done)
-	assetfinder_error := assetfinder.Run()
-	done <- true
-	if assetfinder_error != nil {
-		return fmt.Errorf("assetfinder failed! \n%w", assetfinder_error)
+	assetfinderErr := assetfinder.Run()
+	if assetfinderErr != nil {
+		return fmt.Errorf("assetfinder failed! \n%w", assetfinderErr)
 	}
+	done <- true
 
 	// Running amass
+	done = make(chan bool)
+	go utils.Spinner("running amass...", done)
 	amassFile := cfg.Output + "/amass_passive_subs.txt"
 	amass := exec.Command("amass", "enum", "-passive", "-d", cfg.Domain, "-o", amassFile)
 	amass.Stderr = os.Stderr
-	done = make(chan bool)
-	go utils.Spinner("running amass...", done)
-	amass_error := amass.Run()
-	done <- true
-	if amass_error != nil {
-		return fmt.Errorf("amass failed! \n%w", amass_error)
+	amassErr := amass.Run()
+	if amassErr != nil {
+		return fmt.Errorf("amass failed! \n%w", amassErr)
 	}
+	done <- true
 
 	// Querying crt.sh
 	done = make(chan bool)
 	go utils.Spinner("querying crt.sh...", done)
 	Query_url := "https://crt.sh/?q=%." + cfg.Domain + "&output=json"
 	resp, err := http.Get(Query_url)
-	done <- true
 	if err != nil {
 		return fmt.Errorf("request to crt.sh failed\n%w", err)
 	}
@@ -82,19 +82,24 @@ func RunPassive(cfg config.Config) error {
 	for _, r := range results {
 		fmt.Fprintln(crtshFile, r.Name)
 	}
+	done <- true
 
 	// Gathering subdomains from GitHub
 	if cfg.GitHub_token != "" {
+		done = make(chan bool)
+		go utils.Spinner("querying github...", done)
+		_, err := exec.LookPath("github-subdomains")
+		if err != nil {
+			return fmt.Errorf("github-subdomains is not installed")
+		}
 		githubFile := cfg.Output + "/github_subs.txt"
 		github := exec.Command("github-subdomains", "-d", cfg.Domain, "-t", cfg.GitHub_token, "-o", githubFile)
 		github.Stderr = os.Stderr
-		done = make(chan bool)
-		go utils.Spinner("querying github...", done)
-		github_error := github.Run()
-		done <- true
-		if github_error != nil {
-			return fmt.Errorf("github-subdomains failed! \n%w", github_error)
+		githubErr := github.Run()
+		if githubErr != nil {
+			return fmt.Errorf("github-subdomains failed! \n%w", githubErr)
 		}
+		done <- true
 	}
 
 	// Merging results
@@ -105,14 +110,16 @@ func RunPassive(cfg config.Config) error {
 		assetfinderFile.Name(),
 		amassFile,
 		crtshFile.Name(),
-		cfg.Output + "/github_subs.txt",
+	}
+	if cfg.GitHub_token != "" {
+		files = append(files, cfg.Output+"/github_subs.txt")
 	}
 	allSubsFile := cfg.Output + "/all_subs.txt"
 	err = utils.MergeFiles(allSubsFile, files)
-	done <- true
 	if err != nil {
 		return fmt.Errorf("failed to merge files\n%w", err)
 	}
+	done <- true
 
 	return nil
 }

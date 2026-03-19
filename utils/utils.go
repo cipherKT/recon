@@ -3,6 +3,8 @@ package utils
 import (
 	"bufio"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"time"
@@ -64,4 +66,25 @@ func Spinner(message string, done chan bool) {
 			i++
 		}
 	}
+}
+
+func DownloadFile(url string, outputPath string) error {
+	resp, err := http.Get(url)
+	if err != nil {
+		return fmt.Errorf("Failed to download file \n%w", err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("Failed to read file body\n%w", err)
+	}
+	outputFile, err := os.Create(outputPath)
+	if err != nil {
+		return fmt.Errorf("Failed to create the output file \n%w", err)
+	}
+	defer outputFile.Close()
+	outputFile.Write(body)
+
+	return nil
+
 }

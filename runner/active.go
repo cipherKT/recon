@@ -15,10 +15,10 @@ func RunActive(cfg config.Config) error {
 	go utils.Spinner("Downloding resolvers for shuffledns...", done)
 	resolversFile := cfg.Output + "/resolvers.txt"
 	err := utils.DownloadFile("https://raw.githubusercontent.com/trickest/resolvers/refs/heads/main/resolvers.txt", resolversFile)
+	done <- true
 	if err != nil {
 		return fmt.Errorf("Failed in downloading resolvers\n%w", err)
 	}
-	done <- true
 	done = make(chan bool)
 	go utils.Spinner("running shuffleDNS...", done)
 	shuffleDNSFile := cfg.Output + "/active_subs.txt"
@@ -26,10 +26,10 @@ func RunActive(cfg config.Config) error {
 	shuffleDNS.Stdout = os.Stdout
 	shuffleDNS.Stderr = os.Stderr
 	shuffleDNSErr := shuffleDNS.Run()
+	done <- true
 	if shuffleDNSErr != nil {
 		return fmt.Errorf("shuffle dns failed!\n%w", shuffleDNSErr)
 	}
-	done <- true
 
 	//Running Alterx
 	done = make(chan bool)
@@ -39,10 +39,10 @@ func RunActive(cfg config.Config) error {
 	alterX.Stdout = os.Stdout
 	alterX.Stderr = os.Stderr
 	alterXErr := alterX.Run()
+	done <- true
 	if alterXErr != nil {
 		return fmt.Errorf("alterx failed!\n%w", alterXErr)
 	}
-	done <- true
 
 	// Running DNSX
 	done = make(chan bool)
@@ -52,10 +52,10 @@ func RunActive(cfg config.Config) error {
 	dnsX.Stdout = os.Stdout
 	dnsX.Stderr = os.Stderr
 	dnsXErr := dnsX.Run()
+	done <- true
 	if dnsXErr != nil {
 		return fmt.Errorf("dnsX failed!\n%w", dnsXErr)
 	}
-	done <- true
 
 	return nil
 }

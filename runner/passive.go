@@ -21,10 +21,10 @@ func RunPassive(cfg config.Config) error {
 	subfinder.Stdout = os.Stdout
 	subfinder.Stderr = os.Stderr
 	subfinderErr := subfinder.Run()
+	done <- true
 	if subfinderErr != nil {
 		return fmt.Errorf("subfinder failed! \n%w", subfinderErr)
 	}
-	done <- true
 
 	// Running assetfinder
 	done = make(chan bool)
@@ -38,10 +38,10 @@ func RunPassive(cfg config.Config) error {
 	assetfinder.Stdout = assetfinderFile
 	assetfinder.Stderr = os.Stderr
 	assetfinderErr := assetfinder.Run()
+	done <- true
 	if assetfinderErr != nil {
 		return fmt.Errorf("assetfinder failed! \n%w", assetfinderErr)
 	}
-	done <- true
 
 	// Running amass
 	done = make(chan bool)
@@ -50,16 +50,17 @@ func RunPassive(cfg config.Config) error {
 	amass := exec.Command("amass", "enum", "-passive", "-d", cfg.Domain, "-o", amassFile)
 	amass.Stderr = os.Stderr
 	amassErr := amass.Run()
+	done <- true
 	if amassErr != nil {
 		return fmt.Errorf("amass failed! \n%w", amassErr)
 	}
-	done <- true
 
 	// Querying crt.sh
 	done = make(chan bool)
 	go utils.Spinner("querying crt.sh...", done)
 	Query_url := "https://crt.sh/?q=%." + cfg.Domain + "&output=json"
 	resp, err := http.Get(Query_url)
+	done <- true
 	if err != nil {
 		return fmt.Errorf("request to crt.sh failed\n%w", err)
 	}
@@ -82,7 +83,6 @@ func RunPassive(cfg config.Config) error {
 	for _, r := range results {
 		fmt.Fprintln(crtshFile, r.Name)
 	}
-	done <- true
 
 	// Gathering subdomains from GitHub
 	if cfg.GitHub_token != "" {
@@ -96,10 +96,10 @@ func RunPassive(cfg config.Config) error {
 		github := exec.Command("github-subdomains", "-d", cfg.Domain, "-t", cfg.GitHub_token, "-o", githubFile)
 		github.Stderr = os.Stderr
 		githubErr := github.Run()
+		done <- true
 		if githubErr != nil {
 			return fmt.Errorf("github-subdomains failed! \n%w", githubErr)
 		}
-		done <- true
 	}
 
 	// Merging results
@@ -116,10 +116,10 @@ func RunPassive(cfg config.Config) error {
 	}
 	allSubsFile := cfg.Output + "/all_subs.txt"
 	err = utils.MergeFiles(allSubsFile, files)
+	done <- true
 	if err != nil {
 		return fmt.Errorf("failed to merge files\n%w", err)
 	}
-	done <- true
 
 	return nil
 }

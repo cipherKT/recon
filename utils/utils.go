@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 )
 
@@ -85,6 +86,32 @@ func DownloadFile(url string, outputPath string) error {
 	defer outputFile.Close()
 	outputFile.Write(body)
 
+	return nil
+
+}
+
+func ExtractUrls(inputFile string, outputFile string) error {
+	file, err := os.Open(inputFile)
+	if err != nil {
+		return fmt.Errorf("Error opening the input file")
+	}
+	defer file.Close()
+	urls := []string{}
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		fields := strings.Fields(scanner.Text())
+		if len(fields) > 0 {
+			urls = append(urls, fields[0])
+		}
+	}
+	op, err := os.Create(outputFile)
+	if err != nil {
+		return fmt.Errorf("Error creating the output file \n%w", err)
+	}
+	defer op.Close()
+	for _, url := range urls {
+		fmt.Fprintln(op, url)
+	}
 	return nil
 
 }

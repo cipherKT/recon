@@ -36,19 +36,7 @@ var rootCmd = &cobra.Command{
 			fmt.Println("Error: wordlist is required. Use -w /path/to/wordlist.txt")
 			return
 		}
-		err := utils.CheckTools([]string{
-			"subfinder",
-			"assetfinder",
-			"amass",
-			"shuffledns",
-			"dnsx",
-			"alterx",
-			"httpx",
-			"naabu",
-			"ffuf",
-			"nuclei",
-			"subzy",
-		})
+		err := utils.CheckTools(config.RequiredTools())
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -63,6 +51,16 @@ var rootCmd = &cobra.Command{
 			cfg.GitHub_token = os.Getenv("GITHUB_TOKEN")
 		}
 		err = runner.RunPassive(cfg)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		err = runner.RunActive(cfg)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		err = runner.RunProbe(cfg)
 		if err != nil {
 			fmt.Println(err)
 			return

@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -12,6 +13,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func getVersion() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "dev"
+	}
+	if info.Main.Version == "" || info.Main.Version == "(devel)" {
+		return "dev"
+	}
+	return info.Main.Version
+}
+
 func banner() {
 	fmt.Println(`
     ██████╗ ███████╗ ██████╗ ██████╗ ███╗   ██╗
@@ -20,7 +32,7 @@ func banner() {
     ██╔══██╗██╔══╝  ██║     ██║   ██║██║╚██╗██║
     ██║  ██║███████╗╚██████╗╚██████╔╝██║ ╚████║
     ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝`)
-	fmt.Println("    automated recon pipeline  ~cipherKT")
+	fmt.Printf("    automated recon pipeline  ~cipherKT %s\n\n", getVersion())
 }
 
 var rootCmd = &cobra.Command{

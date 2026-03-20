@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/cipherKT/recon/config"
@@ -17,23 +18,17 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		domain, _ := cmd.Flags().GetString("domain")
 		output, _ := cmd.Flags().GetString("output")
-		wordlist, _ := cmd.Flags().GetString("wordlist")
 		githubToken, _ := cmd.Flags().GetString("github-token")
 		threads, _ := cmd.Flags().GetInt("threads")
 
 		cfg := config.Config{
 			Domain:       domain,
 			Output:       output,
-			Wordlist:     wordlist,
 			Threads:      threads,
 			GitHub_token: githubToken,
 		}
 		if cfg.Domain == "" {
 			fmt.Println("Error: domain is required. Use -d target.com")
-			return
-		}
-		if cfg.Wordlist == "" {
-			fmt.Println("Error: wordlist is required. Use -w /path/to/wordlist.txt")
 			return
 		}
 		err := utils.CheckTools(config.RequiredTools())
@@ -47,23 +42,93 @@ var rootCmd = &cobra.Command{
 			fmt.Println("Error creating output directory", mkdir_err)
 			return
 		}
+		startTime := time.Now()
 		if cfg.GitHub_token == "" {
 			cfg.GitHub_token = os.Getenv("GITHUB_TOKEN")
 		}
+
+		// passive scan
 		err = runner.RunPassive(cfg)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
+
+		// active scan
 		err = runner.RunActive(cfg)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
+		subzyChan := make(chan error, 1)
+		go func() {
+			subzyChan <- runner.RunTakeOver(cfg)
+		}()
+
+		// probing
 		err = runner.RunProbe(cfg)
 		if err != nil {
 			fmt.Println(err)
 			return
+		}
+
+		// portscan + crawling
+		var wg sync.WaitGroup
+		errChan := make(chan error, 2)
+
+		wg.Add(2)
+
+		// portscan
+		go func() {
+			defer wg.Done()
+			portScanErr := runner.RunPortScan(cfg)
+			if portScanErr != nil {
+				errChan <- portScanErr
+			}
+		}()
+
+		// crawler
+		go func() {
+			defer wg.Done()
+			crwalerErr := runner.RunCrawl(cfg)
+			if crwalerErr != nil {
+				errChan <- crwalerErr
+				return
+			}
+			// Extract js files
+			jsErr := utils.ExtractJsFiles(cfg.Output+"/crawl_results.txt", cfg.Output+"/js_files.txt")
+			if jsErr != nil {
+				errChan <- jsErr
+				return
+			}
+		}()
+
+		wg.Wait()
+		close(errChan)
+		for err := range errChan {
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+		}
+
+		// vuln scan
+		err = runner.RunNuclei(cfg)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		// waiting for subzy to complete
+		takeoverErr := <-subzyChan
+		if takeoverErr != nil {
+			fmt.Println("subzy failed: ", takeoverErr)
+		}
+
+		// Generating summary
+		err = utils.GenerateSummary(cfg, startTime, takeoverErr)
+		if err != nil {
+			fmt.Println(err)
 		}
 
 	},
@@ -76,7 +141,6 @@ func Execute() {
 func init() {
 	rootCmd.Flags().StringP("domain", "d", "", "Target domain e.g. target.com")
 	rootCmd.Flags().StringP("output", "o", "./results", "Output directory")
-	rootCmd.Flags().StringP("wordlist", "w", "", "Path to wordlist for ffuf")
 	rootCmd.Flags().StringP("github-token", "g", "", "GitHub token")
 	rootCmd.Flags().IntP("threads", "t", 50, "Number of threads")
 

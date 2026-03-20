@@ -104,7 +104,7 @@ func RunPassive(cfg config.Config) error {
 
 	// Merging results
 	done = make(chan bool)
-	go utils.Spinner("merging results...", done)
+	go utils.Spinner("merging results of subdomain enumeration...", done)
 	files := []string{
 		subfinderFile,
 		assetfinderFile.Name(),
@@ -118,7 +118,7 @@ func RunPassive(cfg config.Config) error {
 	err = utils.MergeFiles(allSubsFile, files)
 	done <- true
 	if err != nil {
-		return fmt.Errorf("failed to merge files\n%w", err)
+		return fmt.Errorf("failed to merge subdomain results\n%w", err)
 	}
 
 	return nil

@@ -12,9 +12,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func banner() {
+	fmt.Println(`
+    ██████╗ ███████╗ ██████╗ ██████╗ ███╗   ██╗
+    ██╔══██╗██╔════╝██╔════╝██╔═══██╗████╗  ██║
+    ██████╔╝█████╗  ██║     ██║   ██║██╔██╗ ██║
+    ██╔══██╗██╔══╝  ██║     ██║   ██║██║╚██╗██║
+    ██║  ██║███████╗╚██████╗╚██████╔╝██║ ╚████║
+    ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝`)
+	fmt.Println("    automated recon pipeline  ~cipherKT")
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "recon",
 	Short: "Automation for recon \n \t\t ~cipher",
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		banner()
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		domain, _ := cmd.Flags().GetString("domain")
 		output, _ := cmd.Flags().GetString("output")
@@ -139,6 +153,10 @@ func Execute() {
 }
 
 func init() {
+	rootCmd.SetHelpFunc(func(cmd *cobra.Command, s []string) {
+		banner()
+		cmd.Usage()
+	})
 	rootCmd.Flags().StringP("domain", "d", "", "Target domain e.g. target.com")
 	rootCmd.Flags().StringP("output", "o", "./results", "Output directory")
 	rootCmd.Flags().StringP("github-token", "g", "", "GitHub token")

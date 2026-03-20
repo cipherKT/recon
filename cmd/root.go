@@ -50,7 +50,7 @@ var rootCmd = &cobra.Command{
 			fmt.Println(err)
 			return
 		}
-		cfg.Output = cfg.Output + "/" + cfg.Domain + "_" + time.Now().Format("02-01-2006_15-04")
+		cfg.Output = cfg.Output + "/" + cfg.Domain
 		mkdir_err := os.MkdirAll(cfg.Output, 0755)
 		if mkdir_err != nil {
 			fmt.Println("Error creating output directory", mkdir_err)

@@ -25,7 +25,7 @@ func RunProbe(cfg config.Config) error {
 	// Clearing the output
 	err := utils.ExtractUrls(httpxFile, cfg.Output+"/httpx_urls.txt")
 	if err != nil {
-		return fmt.Errorf("Failed to extract URLs\n%w", err)
+		return fmt.Errorf("Failed to extract URLs in httpx results\n%w", err)
 	}
 
 	return nil

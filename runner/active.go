@@ -47,7 +47,7 @@ func RunActive(cfg config.Config) error {
 	// Running DNSX
 	done = make(chan bool)
 	go utils.Spinner("Running DNSX", done)
-	dnsxFile := cfg.Output + "/all.txt"
+	dnsxFile := cfg.Output + "/dnsx.txt"
 	dnsX := exec.Command("dnsx", "-l", alterXFile, "-resp", "-o", dnsxFile)
 	dnsX.Stdout = os.Stdout
 	dnsX.Stderr = os.Stderr
@@ -55,6 +55,11 @@ func RunActive(cfg config.Config) error {
 	done <- true
 	if dnsXErr != nil {
 		return fmt.Errorf("dnsX failed!\n%w", dnsXErr)
+	}
+	// Filtering the alterx results
+	err = utils.ExtractUrls(dnsxFile, cfg.Output+"/all.txt")
+	if err != nil {
+		return fmt.Errorf("Failed to extract URL in dnsx results\n%w", err)
 	}
 
 	return nil
